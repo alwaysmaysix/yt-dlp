@@ -113,7 +113,9 @@ class SpankBangIE(InfoExtractor):
             raise ExtractorError(
                 f'Failed to download webpage for video {video_id}', expected=True)
 
-        if re.search(r'<[^>]+\b(?:id|class)=["\']video_removed', webpage.decode('utf-8')):
+        webpage = webpage.decode('utf-8')
+
+        if re.search(r'<[^>]+\b(?:id|class)=["\']video_removed', webpage):
             raise ExtractorError(
                 f'Video {video_id} is not available', expected=True)
 
@@ -142,13 +144,13 @@ class SpankBangIE(InfoExtractor):
         STREAM_URL_PREFIX = 'stream_url_'
 
         for mobj in re.finditer(
-                rf'{STREAM_URL_PREFIX}(?P<id>[^\s=]+)\s*=\s*(["\'])(?P<url>(?:(?!\2).)+)\2', webpage.decode('utf-8')):
-            extract_format(mobj.group('id', 'url'))
+                rf'{STREAM_URL_PREFIX}(?P<id>[^\s=]+)\s*=\s*(["\'])(?P<url>(?:(?!\2).)+)\2', webpage):
+            extract_format(mobj.group('id'), mobj.group('url'))
 
         if not formats:
             stream_key = self._search_regex(
                 r'data-streamkey\s*=\s*(["\'])(?P<value>(?:(?!\1).)+)\1',
-                webpage.decode('utf-8'), 'stream key', group='value')
+                webpage, 'stream key', group='value')
 
             stream = self._download_json(
                 'https://spankbang.com/api/videos/stream', video_id,
@@ -165,25 +167,25 @@ class SpankBangIE(InfoExtractor):
                     format_url = format_url[0]
                 extract_format(format_id, format_url)
 
-        info = self._search_json_ld(webpage.decode('utf-8'), video_id, default={})
+        info = self._search_json_ld(webpage, video_id, default={})
 
         title = self._html_search_regex(
-            r'(?s)<h1[^>]+\btitle=["\']([^"]+)["\']>', webpage.decode('utf-8'), 'title', default=None)
+            r'(?s)<h1[^>]+\btitle=["\']([^"]+)["\']>', webpage, 'title', default=None)
         description = self._search_regex(
             r'<div[^>]+\bclass=["\']bottom[^>]+>\s*<p>[^<]*</p>\s*<p>([^<]+)',
-            webpage.decode('utf-8'), 'description', default=None)
-        thumbnail = self._og_search_thumbnail(webpage.decode('utf-8'), default=None)
+            webpage, 'description', default=None)
+        thumbnail = self._og_search_thumbnail(webpage, default=None)
         uploader = self._html_search_regex(
-            r'<svg[^>]+\bclass="(?:[^"]*?user[^"]*?)">.*?</svg>([^<]+)', webpage.decode('utf-8'), 'uploader', default=None)
+            r'<svg[^>]+\bclass="(?:[^"]*?user[^"]*?)">.*?</svg>([^<]+)', webpage, 'uploader', default=None)
         uploader_id = self._html_search_regex(
-            r'<a[^>]+href="/profile/([^"]+)"', webpage.decode('utf-8'), 'uploader_id', default=None)
+            r'<a[^>]+href="/profile/([^"]+)"', webpage, 'uploader_id', default=None)
         duration = parse_duration(self._search_regex(
             r'<div[^>]+\bclass=["\']right_side[^>]+>\s*<span>([^<]+)',
-            webpage.decode('utf-8'), 'duration', default=None))
+            webpage, 'duration', default=None))
         view_count = str_to_int(self._search_regex(
-            r'([\d,.]+)\s+plays', webpage.decode('utf-8'), 'view count', default=None))
+            r'([\d,.]+)\s+plays', webpage, 'view count', default=None))
 
-        age_limit = self._rta_search(webpage.decode('utf-8'))
+        age_limit = self._rta_search(webpage)
 
         return merge_dicts({
             'id': video_id,
@@ -197,3 +199,42 @@ class SpankBangIE(InfoExtractor):
             'formats': formats,
             'age_limit': age_limit,
         }, info)
+
+class SpankBangPlaylistIE(InfoExtractor):
+    _VALID_URL = r'https?://(?:[^/]+\.)?spankbang\.com/(?P<id>[\da-z]+)/playlist/(?P<display_id>[^/]+)'
+    _TEST = {
+        'url': 'https://spankbang.com/ug0k/playlist/big+ass+titties',
+        'info_dict': {
+            'id': 'ug0k',
+            'title': 'Big Ass Titties',
+        },
+        'playlist_mincount': 40,
+    }
+
+    def _real_extract(self, url):
+        mobj = self._match_valid_url(url)
+        playlist_id = mobj.group('id')
+
+        webpage = get_page_content(url)
+
+        if not webpage:
+            raise ExtractorError(
+                f'Failed to download webpage for playlist {playlist_id}', expected=True)
+
+        webpage = webpage.decode('utf-8')
+
+        entries = [
+            self.url_result(
+                urljoin(url, mobj.group('path')),
+                ie=SpankBangIE.ie_key(), video_id=mobj.group('id')
+            )
+            for mobj in re.finditer(
+                r'<a[^>]+\bhref=(["\'])(?P<path>/?[\da-z]+-(?P<id>[\da-z]+)/playlist/[^"\']*(?:(?!\1).)*)\1',
+                webpage)
+        ]
+
+        title = self._html_search_regex(
+            r'<em>([^<]+)</em>\s+playlist\s*<', webpage, 'playlist title',
+            fatal=False)
+
+        return self.playlist_result(entries, playlist_id, title)
