@@ -171,7 +171,7 @@ class KnownPiracyIE(UnsupportedInfoExtractor):
     """
 
     URLS = (
-        r'dood\.(?:to|watch|so|pm|wf|re)',
+       
         # Sites youtube-dl supports, but we won't
         r'viewsb\.com',
         r'filemoon\.sx',
@@ -186,7 +186,6 @@ class KnownPiracyIE(UnsupportedInfoExtractor):
         r'wolfstream\.tv',
         r'xvideosharing\.com',
         r'(?:\w+\.)?viidshar\.com',
-        r'sxyprn\.com',
         r'jable\.tv',
         r'91porn\.com',
         r'einthusan\.(?:tv|com|ca)',
@@ -194,9 +193,6 @@ class KnownPiracyIE(UnsupportedInfoExtractor):
     )
 
     _TESTS = [{
-        'url': 'http://dood.to/e/5s1wmbdacezb',
-        'only_matching': True,
-    }, {
         'url': 'https://thisav.com/en/terms',
         'only_matching': True,
     }]
